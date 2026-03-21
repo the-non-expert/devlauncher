@@ -1,7 +1,7 @@
 """Tests for Service.install_cmd parsing and serialization."""
 import textwrap
 import pytest
-from devmux.config import Service, load_config, resolve_port_refs
+from devmux.config import Service, load_config
 from devmux.discovery import services_to_toml
 
 

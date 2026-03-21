@@ -22,7 +22,7 @@ import re
 import sys
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 # tomllib is stdlib in Python 3.11+; fall back to tomli on 3.9-3.10
 if sys.version_info >= (3, 11):
@@ -43,6 +43,7 @@ class Service:
     port: int
     cwd: str = "."
     env: Dict[str, str] = field(default_factory=dict)
+    install_cmd: Optional[str] = None
 
 
 def load_config(path: str = "dev.toml") -> List[Service]:
@@ -66,6 +67,7 @@ def load_config(path: str = "dev.toml") -> List[Service]:
             port=int(cfg["port"]),
             cwd=cfg.get("cwd", "."),
             env={k: str(v) for k, v in cfg.get("env", {}).items()},
+            install_cmd=cfg.get("install_cmd") or None,
         ))
 
     if not services:

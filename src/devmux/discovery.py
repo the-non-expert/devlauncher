@@ -456,6 +456,8 @@ def services_to_toml(services: List[Service]) -> str:
         lines.append(f'cmd = "{svc.cmd}"')
         lines.append(f"port = {svc.port}")
         lines.append(f'cwd = "{svc.cwd}"')
+        if svc.install_cmd:
+            lines.append(f'install_cmd = "{svc.install_cmd}"')
         if svc.env:
             env_parts = ", ".join(
                 f'{k} = "{v}"' for k, v in svc.env.items()

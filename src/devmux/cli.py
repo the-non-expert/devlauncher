@@ -25,10 +25,10 @@ def _run_install_phase(services: List[Service]) -> None:
     A non-zero exit code from an install command warns but does not abort —
     services may still start successfully even with partial install failures.
     """
+    needs = [svc for svc in services if needs_install(svc)]
     to_install = [
         (svc, _PALETTE[i % len(_PALETTE)])
-        for i, svc in enumerate(services)
-        if needs_install(svc)
+        for i, svc in enumerate(needs)
     ]
     if not to_install:
         return
@@ -108,7 +108,6 @@ def main() -> None:
         print(f"  {'SERVICE':<8}  {'FRAMEWORK':<{_FW_WIDTH}}  {'DIR':<{_DIR_WIDTH}}  COMMAND")
         print(f"  {'─'*8}  {'─'*_FW_WIDTH}  {'─'*_DIR_WIDTH}  {'─'*38}")
         for svc in services:
-            from .discovery import _score_directory as _sd  # noqa: F401
             # Infer framework label from cmd for display
             fw = "unknown"
             cmd_lower = svc.cmd.lower()

@@ -325,15 +325,16 @@ def _infer_install_cmd(score: _DirScore) -> Optional[str]:
             return "yarn install"
         return "npm install"
 
-    # Python — requirements.txt takes priority over pyproject-only
-    has_requirements = (
-        (directory / "requirements.txt").exists()
-        or (directory / "requirements-dev.txt").exists()
-    )
-    has_pyproject = (directory / "pyproject.toml").exists()
-    if has_requirements:
-        return "pip install -r requirements.txt"
-    if has_pyproject:
+    # Python — requirements.txt takes priority over requirements-dev.txt
+    req_file = None
+    if (directory / "requirements.txt").exists():
+        req_file = "requirements.txt"
+    elif (directory / "requirements-dev.txt").exists():
+        req_file = "requirements-dev.txt"
+
+    if req_file:
+        return f"pip install -r {req_file}"
+    if (directory / "pyproject.toml").exists():
         return "pip install -e ."
 
     # Go

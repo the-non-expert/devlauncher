@@ -301,6 +301,48 @@ def _infer_backend(score: _DirScore) -> Tuple[str, int, List[str]]:
     return "npm run start", 3000, warnings
 
 
+# ── Install command inference ──────────────────────────────────────────────────
+def _infer_install_cmd(score: _DirScore) -> Optional[str]:
+    """Return the install command for a discovered service, or None if not applicable.
+
+    Rules:
+    - Node project (has package.json): use package-manager-specific install
+    - Python project with requirements.txt: "pip install -r requirements.txt"
+    - Python project with only pyproject.toml: "pip install -e ."
+    - Go project (go.mod present): "go mod download"
+    - Rust / anything else: None (cargo fetches deps on build; no pre-install step)
+    """
+    directory = score.path
+
+    # Node — package.json present
+    if (directory / "package.json").exists():
+        pm = score.package_manager
+        if pm == "bun":
+            return "bun install"
+        if pm == "pnpm":
+            return "pnpm install"
+        if pm == "yarn":
+            return "yarn install"
+        return "npm install"
+
+    # Python — requirements.txt takes priority over pyproject-only
+    has_requirements = (
+        (directory / "requirements.txt").exists()
+        or (directory / "requirements-dev.txt").exists()
+    )
+    has_pyproject = (directory / "pyproject.toml").exists()
+    if has_requirements:
+        return "pip install -r requirements.txt"
+    if has_pyproject:
+        return "pip install -e ."
+
+    # Go
+    if (directory / "go.mod").exists():
+        return "go mod download"
+
+    return None
+
+
 # ── Monorepo detection ─────────────────────────────────────────────────────────
 def _is_monorepo(root: Path) -> bool:
     """Heuristic: looks like a monorepo if packages/ or apps/ exist with 2+ subdirs."""
@@ -399,6 +441,7 @@ def discover_services(root: Optional[str] = None) -> Tuple[List[Service], List[s
                 port=port,
                 cwd=cwd,
                 env={},
+                install_cmd=_infer_install_cmd(fs),
             ))
             warnings.extend(svc_warnings)
     else:
@@ -423,6 +466,7 @@ def discover_services(root: Optional[str] = None) -> Tuple[List[Service], List[s
                 port=port,
                 cwd=cwd,
                 env={},
+                install_cmd=_infer_install_cmd(bs),
             ))
             warnings.extend(svc_warnings)
     else:

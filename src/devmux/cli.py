@@ -13,8 +13,35 @@ from typing import List
 
 from .config import Service, load_config, resolve_port_refs
 from .discovery import discover_services, services_to_toml
+from .installer import needs_install, run_install
 from .ports import find_free_port
 from .runner import BOLD, RESET, YELLOW, _PALETTE, run_services
+
+
+def _run_install_phase(services: List[Service]) -> None:
+    """Run dependency installs for any service that needs them.
+
+    Installs run sequentially (not in parallel) so output stays readable.
+    A non-zero exit code from an install command warns but does not abort —
+    services may still start successfully even with partial install failures.
+    """
+    to_install = [
+        (svc, _PALETTE[i % len(_PALETTE)])
+        for i, svc in enumerate(services)
+        if needs_install(svc)
+    ]
+    if not to_install:
+        return
+
+    print(f"{BOLD}Installing dependencies...{RESET}\n")
+    for svc, color in to_install:
+        exit_code = run_install(svc, color=color)
+        if exit_code != 0:
+            print(
+                f"{YELLOW}⚠  install_cmd for '{svc.name}' exited {exit_code} "
+                f"— continuing anyway{RESET}"
+            )
+    print()
 
 
 def _resolve_services(services: List[Service]) -> List[Service]:
@@ -119,6 +146,9 @@ def main() -> None:
             print(f"\n  {BOLD}dev.toml{RESET} saved. Edit it anytime to adjust services.\n")
         except OSError as e:
             print(f"{YELLOW}⚠  Could not write dev.toml: {e} — continuing without saving.{RESET}")
+
+    # Run install phase before resolving ports or starting services
+    _run_install_phase(services)
 
     services = _resolve_services(services)
 

@@ -1,9 +1,7 @@
 """Tests for dependency detection and install execution."""
-import subprocess
+import os
 import sys
-import textwrap
-from pathlib import Path
-from unittest.mock import patch
+import time
 
 import pytest
 
@@ -44,24 +42,26 @@ def test_needs_install_node_present_node_modules(tmp_path):
 
 def test_needs_install_node_stale_lock_file(tmp_path):
     """node_modules exists but lock file is newer → needs install."""
-    import time
     node_modules = tmp_path / "node_modules"
     node_modules.mkdir()
-    time.sleep(0.01)  # ensure lock file is strictly newer
     lock = tmp_path / "package-lock.json"
     lock.write_text("{}")
+    # Force lock file mtime to be strictly in the future
+    future = time.time() + 1
+    os.utime(lock, (future, future))
     svc = _svc(str(tmp_path), "npm install")
     assert needs_install(svc) is True
 
 
 def test_needs_install_node_fresh_lock_file(tmp_path):
     """Lock file older than node_modules → no install needed."""
-    import time
     lock = tmp_path / "package-lock.json"
     lock.write_text("{}")
-    time.sleep(0.01)
     node_modules = tmp_path / "node_modules"
     node_modules.mkdir()
+    # Force lock file mtime to be in the past
+    past = time.time() - 1
+    os.utime(lock, (past, past))
     svc = _svc(str(tmp_path), "npm install")
     assert needs_install(svc) is False
 
@@ -118,6 +118,13 @@ def test_needs_install_go_always_true(tmp_path):
 
 
 # ── run_install ────────────────────────────────────────────────────────────────
+
+def test_run_install_returns_zero_when_no_install_cmd(tmp_path):
+    svc = Service(name="api", cmd="uvicorn main:app", port=8000,
+                  cwd=str(tmp_path))
+    exit_code = run_install(svc, color="\033[94m")
+    assert exit_code == 0
+
 
 def test_run_install_returns_zero_on_success(tmp_path, capsys):
     svc = Service(name="web", cmd="npm run dev", port=5173,

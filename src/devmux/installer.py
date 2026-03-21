@@ -18,11 +18,12 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .config import Service
 
-# Re-export ANSI codes used for [INSTALL:NAME] labels
+# Import ANSI codes used for [INSTALL:NAME] labels
 from .runner import BOLD, RESET
 
 _NODE_INSTALL_PREFIXES = ("npm install", "yarn install", "pnpm install", "bun install")
 _NODE_LOCK_FILES = ("package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lockb")
+_PYTHON_INSTALL_PREFIXES = ("pip install", "uv pip install", "uv sync", "poetry install")
 _PYTHON_VENV_DIRS = (".venv", "venv", "env")
 
 
@@ -51,7 +52,7 @@ def needs_install(service: "Service") -> bool:
         return False
 
     # ── Python ─────────────────────────────────────────────────────────────────
-    if "pip install" in cmd:
+    if any(cmd.startswith(prefix) for prefix in _PYTHON_INSTALL_PREFIXES):
         for venv_dir in _PYTHON_VENV_DIRS:
             if (cwd / venv_dir).is_dir():
                 return False
@@ -71,9 +72,12 @@ def run_install(service: "Service", color: str) -> int:
     should NOT abort — services can still start even if install partially
     fails (e.g. optional dev deps).
     """
+    if not service.install_cmd:
+        return 0
+
     label = f"INSTALL:{service.name.upper()}"
     is_win = sys.platform == "win32"
-    cmd = service.install_cmd  # guaranteed non-None by caller
+    cmd = service.install_cmd
 
     print(f"{color}{BOLD}[{label}]{RESET} {cmd}", flush=True)
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from devmux.discovery import discover_services
+from devmux.discovery import discover_services, services_to_toml
 
 
 def _write_pkg_json(directory: Path, scripts=None, deps=None) -> None:
@@ -97,8 +97,22 @@ def test_no_install_cmd_for_rust_backend(tmp_path):
     services, _ = discover_services(str(tmp_path))
     svc = next((s for s in services if s.name == "api"), None)
     # Rust: cargo handles deps itself, no install_cmd
-    if svc:
-        assert svc.install_cmd is None
+    assert svc is not None
+    assert svc.install_cmd is None
+
+
+# ── Bun frontend ───────────────────────────────────────────────────────────────
+
+def test_discovers_bun_install_for_bun_project(tmp_path):
+    fe = tmp_path / "frontend"
+    fe.mkdir()
+    _write_pkg_json(fe, deps={"vite": "^5.0.0"})
+    (fe / "vite.config.ts").write_text("")
+    (fe / "bun.lockb").write_text("")
+    services, _ = discover_services(str(tmp_path))
+    web = next((s for s in services if s.name == "web"), None)
+    assert web is not None
+    assert web.install_cmd == "bun install"
 
 
 # ── services_to_toml includes install_cmd ─────────────────────────────────────
@@ -109,7 +123,6 @@ def test_services_to_toml_includes_install_cmd(tmp_path):
     _write_pkg_json(fe, deps={"vite": "^5.0.0"})
     (fe / "vite.config.ts").write_text("")
     services, _ = discover_services(str(tmp_path))
-    from devmux.discovery import services_to_toml
     toml = services_to_toml(services)
     assert "install_cmd" in toml
     assert "npm install" in toml

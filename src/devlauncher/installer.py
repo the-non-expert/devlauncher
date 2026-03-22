@@ -1,6 +1,6 @@
 """Dependency install detection and execution.
 
-Before starting services, devmux checks whether dependencies are present
+Before starting services, devlauncher checks whether dependencies are present
 and runs the appropriate install command if not.
 
 Detection heuristics:

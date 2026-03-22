@@ -1,4 +1,4 @@
-# devmux — Agent Reference
+# devlauncher — Agent Reference
 
 Structured reference for AI agents and coding assistants. No prose.
 
@@ -6,13 +6,13 @@ Structured reference for AI agents and coding assistants. No prose.
 
 ## What it is
 
-- **Package**: devmux
+- **Package**: devlauncher
 - **Type**: Python CLI tool
-- **Install**: `pip install devmux`
+- **Install**: `pip install devlauncher`
 - **Version**: 0.1.0
 - **Python**: 3.9+
 - **Purpose**: Starts multiple local dev services (e.g. API + frontend) from one terminal
-- **Entry point**: `devmux.cli:main`
+- **Entry point**: `devlauncher.cli:main`
 - **Config file**: `dev.toml` (TOML format, auto-written on first run if absent)
 - **External deps**: none on Python 3.11+; `tomli` required on 3.9–3.10
 
@@ -21,9 +21,9 @@ Structured reference for AI agents and coding assistants. No prose.
 ## CLI Usage
 
 ```
-devmux                    # reads ./dev.toml, or runs auto-discovery if not present
-devmux path/to/dev.toml   # explicit config path
-python -m devmux          # equivalent to devmux
+devlauncher                    # reads ./dev.toml, or runs auto-discovery if not present
+devlauncher path/to/dev.toml   # explicit config path
+python -m devlauncher          # equivalent to devlauncher
 ```
 
 No flags or subcommands. Single optional positional argument: path to a TOML config file.
@@ -120,7 +120,7 @@ Runs sequentially before services start.
 
 - Ctrl+C sends SIGTERM to all service subprocesses
 - If a process does not exit within 5 seconds, SIGKILL is sent
-- All processes are waited on before devmux exits
+- All processes are waited on before devlauncher exits
 - Windows: uses `process.terminate()` (no SIGTERM/SIGKILL distinction)
 - Exit codes: 0 on clean shutdown, 1 on config error
 
@@ -131,5 +131,5 @@ Runs sequentially before services start.
 - Auto-discovery detects at most one frontend and one backend service per project
 - Monorepo layouts (`packages/`, `apps/` with 2+ subdirs) produce a warning; manual `dev.toml` recommended
 - UNCERTAIN confidence services (score 1–2) are skipped automatically
-- `devmux init` is **not implemented** — do not suggest it or reference it
+- `devlauncher init` is **not implemented** — do not suggest it or reference it
 - `tomli` must be installed manually on Python 3.9–3.10 if not declared in the consuming project's own dependencies

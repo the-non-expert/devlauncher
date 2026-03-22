@@ -5,8 +5,8 @@ import time
 
 import pytest
 
-from devmux.config import Service
-from devmux.installer import needs_install, run_install
+from devlauncher.config import Service
+from devlauncher.installer import needs_install, run_install
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────

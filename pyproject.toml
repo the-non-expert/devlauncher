@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "devmux"
+name = "devlauncher"
 version = "0.1.0"
 description = "Start all your dev services with one command"
 readme = "README.md"
@@ -33,12 +33,12 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/the-non-expert/devmux"
-Repository = "https://github.com/the-non-expert/devmux"
-"Bug Tracker" = "https://github.com/the-non-expert/devmux/issues"
+Homepage = "https://github.com/the-non-expert/devlauncher"
+Repository = "https://github.com/the-non-expert/devlauncher"
+"Bug Tracker" = "https://github.com/the-non-expert/devlauncher/issues"
 
 [project.scripts]
-devmux = "devmux.cli:main"
+devlauncher = "devlauncher.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

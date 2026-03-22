@@ -1,8 +1,8 @@
-# Auto-Discovery in devmux
+# Auto-Discovery in devlauncher
 
 ## What it is
 
-Auto-discovery is devmux's ability to start your services without a `dev.toml`.
+Auto-discovery is devlauncher's ability to start your services without a `dev.toml`.
 It scans the project directory, collects signals, and infers which services exist,
 what commands to run, and which ports to use.
 
@@ -20,9 +20,9 @@ common case and honest when it isn't sure.
 | Non-standard structure or rare frameworks | ~40–60% |
 | Monorepos with 3+ services | Low — use `dev.toml` |
 
-**When accuracy is low, devmux tells you.** It will not silently start the wrong
+**When accuracy is low, devlauncher tells you.** It will not silently start the wrong
 thing. Low-confidence results surface a warning and a suggestion to run
-`devmux init` to generate a `dev.toml` you can review.
+`devlauncher init` to generate a `dev.toml` you can review.
 
 ---
 
@@ -34,7 +34,7 @@ accumulated evidence. More signals = higher confidence.
 
 ### Step 1: Scan candidate directories
 
-devmux looks for directories that could be services. It scans:
+devlauncher looks for directories that could be services. It scans:
 - All immediate subdirectories of the project root
 - The project root itself
 
@@ -44,7 +44,7 @@ Directories that are clearly not services are skipped:
 
 ### Step 2: Collect signals per directory
 
-For each candidate directory, devmux looks for known files and content:
+For each candidate directory, devlauncher looks for known files and content:
 
 **Frontend signals**
 
@@ -73,7 +73,7 @@ For each candidate directory, devmux looks for known files and content:
 
 ### Step 3: Score and assign roles
 
-Each directory gets a score for each role (frontend / backend). devmux assigns
+Each directory gets a score for each role (frontend / backend). devlauncher assigns
 the **highest scoring directory per role**.
 
 Confidence thresholds:
@@ -103,7 +103,7 @@ Default ports per framework:
 | Rust (axum, actix) | 8080 |
 | Go | 8080 |
 
-If devmux cannot determine the framework, it defaults to `3000` (backend) or
+If devlauncher cannot determine the framework, it defaults to `3000` (backend) or
 `5173` (frontend) and tells you.
 
 ### Step 5: Infer commands
@@ -125,11 +125,11 @@ Commands are inferred from framework detection:
 
 ## Failure modes
 
-| Situation | What devmux does |
+| Situation | What devlauncher does |
 |---|---|
 | Only one service found | Starts it, warns that the other role was not detected |
 | Two directories both look like frontends | Picks the one with higher confidence, warns about the other |
-| No services detected at all | Exits with a helpful message: "no services detected — run `devmux init`" |
+| No services detected at all | Exits with a helpful message: "no services detected — run `devlauncher init`" |
 | Framework detected but command uncertain | Uses best-guess command, prints it so the user can verify |
 | Monorepo with 3+ services | Detects multiple, warns that `dev.toml` is recommended |
 
@@ -146,18 +146,18 @@ Auto-discovery is designed for the **common case**. Use a `dev.toml` when:
 - You need `{service.port}` cross-references between services
 - Auto-discovery picks the wrong thing
 
-Run `devmux init` to generate a `dev.toml` pre-filled with what auto-discovery
+Run `devlauncher init` to generate a `dev.toml` pre-filled with what auto-discovery
 found. Edit it from there.
 
 ---
 
-## Scope: what devmux will NOT auto-discover
+## Scope: what devlauncher will NOT auto-discover
 
 These are out of scope by design:
 
 - **Docker Compose stacks** — use `docker compose up`
 - **Kubernetes / Tilt / Skaffold** — wrong abstraction level
-- **Services on remote hosts** — devmux is for local dev only
+- **Services on remote hosts** — devlauncher is for local dev only
 - **Database processes** (Postgres, Redis, etc.) — include in `dev.toml` manually
 - **Arbitrary scripts** with no recognised framework signal
 - **Monorepos with packages/** structure (pnpm workspaces, turborepo)
@@ -168,7 +168,7 @@ These are out of scope by design:
 ## Summary
 
 Auto-discovery is not a permutation engine. It is a signal collector with a
-confidence model. It is most useful for developers who want to run `devmux`
+confidence model. It is most useful for developers who want to run `devlauncher`
 in a new project without writing any config. For anything beyond a
 two-service stack with a conventional layout, `dev.toml` is the right tool —
-and `devmux init` makes writing it trivial.
+and `devlauncher init` makes writing it trivial.

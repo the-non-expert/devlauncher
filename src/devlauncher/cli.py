@@ -1,9 +1,9 @@
-"""devmux CLI entry point.
+"""devlauncher CLI entry point.
 
 Usage:
-    devmux               # reads dev.toml, or auto-discovers services
-    devmux path/to/dev.toml
-    python -m devmux
+    devlauncher               # reads dev.toml, or auto-discovers services
+    devlauncher path/to/dev.toml
+    python -m devlauncher
 """
 
 import sys
@@ -135,7 +135,7 @@ def main() -> None:
             sys.exit(0)
 
         if answer in ("n", "no"):
-            print("\nRun 'devmux init' to configure services manually.")
+            print("\nRun 'devlauncher init' to configure services manually.")
             sys.exit(0)
 
         # ── Write dev.toml ─────────────────────────────────────────────────────
@@ -152,7 +152,7 @@ def main() -> None:
     services = _resolve_services(services)
 
     # Print startup header
-    print(f"\n{BOLD}devmux{RESET}")
+    print(f"\n{BOLD}devlauncher{RESET}")
     for i, svc in enumerate(services):
         color = _PALETTE[i % len(_PALETTE)]
         print(f"  {color}{BOLD}[{svc.name.upper()}]{RESET} http://localhost:{svc.port}")

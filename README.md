@@ -1,16 +1,16 @@
-# devmux
+# devlauncher
 
 Start all your dev services with one command.
 
 ## The Problem
 
 Every multi-service project means opening multiple terminals, remembering startup commands, and
-dealing with silent port conflicts. devmux runs everything in one place.
+dealing with silent port conflicts. devlauncher runs everything in one place.
 
 ## Install
 
 ```
-pip install devmux
+pip install devlauncher
 ```
 
 Requires Python 3.9+.
@@ -21,10 +21,10 @@ Requires Python 3.9+.
 
 ```
 cd my-project
-devmux
+devlauncher
 ```
 
-devmux scans your project, detects services (Vite, FastAPI, Django, etc.), shows you what it found,
+devlauncher scans your project, detects services (Vite, FastAPI, Django, etc.), shows you what it found,
 and asks once to confirm. On confirmation it writes a `dev.toml` and starts everything. It never
 asks again.
 
@@ -46,7 +46,7 @@ env = { VITE_API_URL = "http://localhost:{api.port}" }
 Then run:
 
 ```
-devmux
+devlauncher
 ```
 
 ## How It Works

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from devmux.discovery import discover_services, services_to_toml
+from devlauncher.discovery import discover_services, services_to_toml
 
 
 def _write_pkg_json(directory: Path, scripts=None, deps=None) -> None:

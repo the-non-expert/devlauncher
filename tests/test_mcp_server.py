@@ -1,5 +1,6 @@
 """Tests for mcp_server: devlauncher_status, devlauncher_logs, ensure_registered."""
 import json
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -170,6 +171,7 @@ def test_ensure_registered_creates_mcp_servers_key(tmp_path):
     assert "devlauncher" in data["mcpServers"]
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="os.kill liveness check is POSIX-only")
 def test_status_live_checks_pid_on_crash(tmp_path, monkeypatch):
     """devlauncher_status() must detect crashed services via live PID check."""
     monkeypatch.chdir(tmp_path)

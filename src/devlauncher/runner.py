@@ -10,12 +10,15 @@ Shutdown is two-phase:
 """
 
 import os
+import queue
 import shlex
 import signal
 import subprocess
 import sys
 import threading
-from typing import List
+import time
+from dataclasses import dataclass
+from typing import List, Optional
 
 from .config import Service
 
@@ -32,6 +35,62 @@ _PALETTE = [
     "\033[91m",  # red
     "\033[93m",  # yellow
 ]
+
+
+@dataclass
+class ServiceState:
+    """Runtime state for one running service."""
+    proc: "subprocess.Popen[str]"
+    label: str
+    color: str
+    port: int
+    start_time: float   # time.monotonic() at launch
+
+
+# ── Log filter (thread-safe) ───────────────────────────────────────────────────
+
+_filter_lock = threading.Lock()
+_active_filter: Optional[str] = None
+
+
+def _get_filter() -> Optional[str]:
+    with _filter_lock:
+        return _active_filter
+
+
+def _set_filter(name: Optional[str]) -> None:
+    with _filter_lock:
+        global _active_filter
+        _active_filter = name
+
+
+def _cycle_log_filter(labels: list) -> None:
+    """Advance log filter: None → label[0] → label[1] → ... → None."""
+    current = _get_filter()
+    if current is None:
+        next_filter = labels[0] if labels else None
+    else:
+        try:
+            idx = labels.index(current)
+            next_filter = labels[idx + 1] if idx + 1 < len(labels) else None
+        except ValueError:
+            next_filter = None
+    _set_filter(next_filter)
+    if next_filter is None:
+        print(f"\n{YELLOW}  Showing all services.{RESET}", flush=True)
+    else:
+        print(f"\n{YELLOW}  Showing only [{next_filter}]. Press l to cycle.{RESET}", flush=True)
+
+
+# ── Uptime formatting ──────────────────────────────────────────────────────────
+
+def _format_uptime(seconds: float) -> str:
+    s = int(seconds)
+    if s < 60:
+        return f"{s}s"
+    if s < 3600:
+        return f"{s // 60}m {s % 60}s"
+    return f"{s // 3600}h {(s % 3600) // 60}m"
 
 
 def _enable_windows_ansi() -> None:

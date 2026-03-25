@@ -50,3 +50,76 @@ def test_cycle_log_filter_single_service_wraps():
     assert _get_filter() == "API"
     _cycle_log_filter(["API"])
     assert _get_filter() is None
+
+
+# ── _kill_all ──────────────────────────────────────────────────────────────────
+
+def _make_state(terminated_quickly: bool):
+    from unittest.mock import MagicMock
+    from devlauncher.runner import ServiceState
+    proc = MagicMock()
+    proc.poll.return_value = None
+    if terminated_quickly:
+        proc.wait.return_value = 0
+    else:
+        import subprocess
+        proc.wait.side_effect = subprocess.TimeoutExpired(cmd="x", timeout=5)
+    return ServiceState(proc=proc, label="API", color="", port=8000, start_time=0.0)
+
+
+def test_kill_all_terminates_running_procs():
+    from unittest.mock import patch
+    from devlauncher.runner import _kill_all
+    state = _make_state(terminated_quickly=True)
+    state.proc.pid = 1234
+    with patch("devlauncher.runner.os.getpgid", return_value=1234), \
+         patch("devlauncher.runner.os.killpg") as mock_killpg:
+        _kill_all([state])
+    mock_killpg.assert_called()
+
+
+def test_kill_all_force_kills_on_timeout():
+    import signal
+    from unittest.mock import patch, call
+    from devlauncher.runner import _kill_all
+    state = _make_state(terminated_quickly=False)
+    state.proc.pid = 1234
+    with patch("devlauncher.runner.os.getpgid", return_value=1234), \
+         patch("devlauncher.runner.os.killpg") as mock_killpg:
+        _kill_all([state])
+    calls = [c[0][1] for c in mock_killpg.call_args_list]
+    assert signal.SIGTERM in calls
+    assert signal.SIGKILL in calls
+
+
+def test_kill_all_empty_list_is_noop():
+    from devlauncher.runner import _kill_all
+    _kill_all([])
+
+
+# ── _print_status ──────────────────────────────────────────────────────────────
+
+def test_print_status_shows_all_services(capsys):
+    from unittest.mock import MagicMock
+    from devlauncher.runner import ServiceState, _print_status
+    proc = MagicMock()
+    proc.pid = 42
+    proc.poll.return_value = None
+    state = ServiceState(proc=proc, label="API", color="", port=8000, start_time=0.0)
+    _print_status([state])
+    out = capsys.readouterr().out
+    assert "API" in out
+    assert "8000" in out
+    assert "42" in out
+
+
+def test_print_status_shows_crashed_service(capsys):
+    from unittest.mock import MagicMock
+    from devlauncher.runner import ServiceState, _print_status
+    proc = MagicMock()
+    proc.pid = 99
+    proc.poll.return_value = 1
+    state = ServiceState(proc=proc, label="WEB", color="", port=5173, start_time=0.0)
+    _print_status([state])
+    out = capsys.readouterr().out
+    assert "crashed" in out.lower() or "exited" in out.lower()

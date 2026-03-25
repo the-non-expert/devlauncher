@@ -126,10 +126,11 @@ Model Context Protocol (MCP) is a standard for tools that AI agents can call. de
 
 ## Requirements and compatibility
 
-- Python >= 3.9 (same as devlauncher itself)
+- Python >= 3.10
 - Claude Code with MCP tool support (any version that supports MCP)
 - The MCP server is registered globally (`~/.claude/settings.json`), so it is available in all projects where devlauncher is installed
 - If devlauncher is not running, the MCP tools return an error response — they do not crash Claude Code
+- **Windows note:** `devlauncher_status()` does not detect mid-session service crashes on Windows — a crashed service will continue to show `"running"` until devlauncher exits. All other MCP functionality works normally.
 
 ---
 

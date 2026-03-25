@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "devlauncher"
-version = "0.1.0"
+version = "0.2.0"
 description = "Start all your dev services with one command"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -30,6 +30,7 @@ classifiers = [
 ]
 dependencies = [
   "tomli; python_version < '3.11'",
+  "mcp",
 ]
 
 [project.urls]
@@ -39,6 +40,7 @@ Repository = "https://github.com/the-non-expert/devlauncher"
 
 [project.scripts]
 devlauncher = "devlauncher.cli:main"
+devlauncher-mcp = "devlauncher.mcp_server:run"
 
 [tool.setuptools.packages.find]
 where = ["src"]

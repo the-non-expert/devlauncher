@@ -63,7 +63,74 @@ def _resolve_services(services: List[Service]) -> List[Service]:
     return resolve_port_refs(final, resolved_ports)
 
 
+def _wait_for_ports_free(services: List[Service], timeout: float = 5.0) -> None:
+    """Poll until all service ports are free or timeout expires.
+
+    Called after _kill_all to avoid false port-conflict warnings caused by
+    the OS not yet releasing ports from the just-killed processes.
+    Exits as soon as all ports are free — typically 1-3 polls (100-300ms).
+    """
+    import socket
+    import time
+    ports = [svc.port for svc in services]
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        busy = []
+        for port in ports:
+            for host in ("127.0.0.1", "::1"):  # match find_free_port dual-stack check
+                try:
+                    family = socket.AF_INET if host == "127.0.0.1" else socket.AF_INET6
+                    with socket.socket(family, socket.SOCK_STREAM) as s:
+                        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                        if s.connect_ex((host, port)) == 0:
+                            busy.append(port)
+                            break
+                except OSError:
+                    pass  # IPv6 may not be available on all systems
+        if not busy:
+            return
+        time.sleep(0.1)
+
+
+def _restart_loop(services: List[Service], original_services: List[Service]) -> None:
+    """Run services in a loop, handling soft/hard restart and quit.
+
+    Args:
+        services:          Already-resolved services (correct ports, refs expanded).
+        original_services: Pre-resolution services — used to re-resolve on hard restart.
+    """
+    while True:
+        action = run_services(services)
+
+        if action == "quit":
+            sys.exit(0)
+
+        elif action == "soft_restart":
+            print(f"\n{BOLD}Restarting...{RESET}\n", flush=True)
+            _wait_for_ports_free(services)
+            # services unchanged — same ports, no reinstall
+
+        elif action == "hard_restart":
+            print(f"\n{BOLD}Hard restarting...{RESET}\n", flush=True)
+            _wait_for_ports_free(original_services)
+            _run_install_phase(original_services)
+            services = _resolve_services(original_services)
+
+
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] in ("--version", "-V"):
+        from . import __version__
+        print(f"devlauncher {__version__}")
+        sys.exit(0)
+
+    if len(sys.argv) > 1 and sys.argv[1] == "mcp":
+        from .mcp_server import run
+        run()
+        return
+
+    from .mcp_server import ensure_registered
+    ensure_registered()
+
     explicit_config = len(sys.argv) > 1
     config_path = sys.argv[1] if explicit_config else "dev.toml"
 
@@ -158,7 +225,7 @@ def main() -> None:
         print(f"  {color}{BOLD}[{svc.name.upper()}]{RESET} http://localhost:{svc.port}")
     print()
 
-    run_services(services)
+    _restart_loop(services, services)
 
 
 if __name__ == "__main__":

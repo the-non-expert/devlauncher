@@ -59,6 +59,31 @@ devlauncher
 - Starts all services with color-coded, prefixed log output
 - Shuts down cleanly on Ctrl+C (SIGTERM → 5s timeout → SIGKILL)
 
+## Interactive Commands
+
+Once services are running, press a key:
+
+| Key | Action |
+|-----|--------|
+| `r` | Soft restart — kill & restart services (no reinstall) |
+| `R` | Hard restart — reinstall deps, re-resolve ports, restart |
+| `s` | Status — show PIDs, ports, uptime, running/crashed |
+| `l` | Filter logs — cycle: all → [SERVICE] → all |
+| `q` / Ctrl+C | Quit — graceful shutdown |
+
+Frontend servers (Vite, Next.js, etc.) handle hot-reload automatically — `r` is mainly useful for backend services.
+
+## Agent Awareness (Claude Code)
+
+devlauncher registers an MCP server with Claude Code on first run. When you open a Claude Code session in a project where devlauncher is running, the agent can:
+
+- Call `devlauncher_status()` to see which services are running, on which ports — so it doesn't start duplicates
+- Call `devlauncher_logs(service, lines)` to read recent log output for debugging
+
+Zero configuration required. Works automatically after `pip install devlauncher`.
+
+See [`docs/mcp-server.md`](docs/mcp-server.md) for full details.
+
 ## Configuration (dev.toml)
 
 All fields:
@@ -86,7 +111,9 @@ env         = { KEY = "value" }                        # optional; supports port
 - Color-coded, prefixed log output per service
 - Graceful shutdown (SIGTERM → 5s timeout → SIGKILL)
 - Cross-platform: macOS, Linux, Windows
-- Zero external dependencies on Python 3.11+ (`tomli` required on 3.9–3.10)
+- `--version` / `-V` flag
+- MCP server for Claude Code agent awareness (zero config)
+- Dependencies: `mcp` (all versions), `tomli` (Python 3.9–3.10 only)
 
 ## Supported Frameworks (auto-discovery)
 

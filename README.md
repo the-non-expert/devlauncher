@@ -13,7 +13,7 @@ dealing with silent port conflicts. devlauncher runs everything in one place.
 pip install devlauncher
 ```
 
-Requires Python 3.9+.
+Requires Python 3.10+.
 
 ## Quickstart
 

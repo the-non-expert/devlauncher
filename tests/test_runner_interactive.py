@@ -1,4 +1,5 @@
 """Tests for pure runner helpers added for interactive keypress feature."""
+import sys
 import pytest
 
 
@@ -67,6 +68,7 @@ def _make_state(terminated_quickly: bool):
     return ServiceState(proc=proc, label="API", color="", port=8000, start_time=0.0)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="os.getpgid/killpg are POSIX-only")
 def test_kill_all_terminates_running_procs():
     from unittest.mock import patch
     from devlauncher.runner import _kill_all
@@ -78,6 +80,7 @@ def test_kill_all_terminates_running_procs():
     mock_killpg.assert_called()
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="os.getpgid/killpg are POSIX-only")
 def test_kill_all_force_kills_on_timeout():
     import signal
     from unittest.mock import patch, call

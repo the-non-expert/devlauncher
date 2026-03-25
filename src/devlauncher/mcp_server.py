@@ -55,15 +55,17 @@ def devlauncher_status() -> Dict[str, Any]:
 
     # Live-check each service PID — status file is written at startup only,
     # so a crashed service would still show "running" without this check.
-    for svc in data.get("services", {}).values():
-        pid = svc.get("pid")
-        if pid and svc.get("status") == "running":
-            try:
-                os.kill(pid, 0)  # signal 0: check liveness without signalling
-            except ProcessLookupError:
-                svc["status"] = "crashed"
-            except PermissionError:
-                pass  # process exists, owned by another user — keep "running"
+    # os.kill(pid, 0) is POSIX-only; on Windows we skip the check (best-effort).
+    if sys.platform != "win32":
+        for svc in data.get("services", {}).values():
+            pid = svc.get("pid")
+            if pid and svc.get("status") == "running":
+                try:
+                    os.kill(pid, 0)  # signal 0: check liveness without signalling
+                except ProcessLookupError:
+                    svc["status"] = "crashed"
+                except PermissionError:
+                    pass  # process exists, owned by another user — keep "running"
 
     return data
 

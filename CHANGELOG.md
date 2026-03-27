@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`devlauncher init` subcommand** — runs auto-discovery and writes `dev.toml` without
+  starting services. Useful for reviewing or editing the generated config before the first
+  run. Prompts before overwriting an existing `dev.toml`.
+
 ## [0.2.0] - 2026-03-25
 
 ### Added

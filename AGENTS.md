@@ -20,13 +20,14 @@ Structured reference for AI agents and coding assistants. No prose.
 
 ## CLI Usage
 
-```
-devlauncher                    # reads ./dev.toml, or runs auto-discovery if not present
-devlauncher path/to/dev.toml   # explicit config path
-python -m devlauncher          # equivalent to devlauncher
-```
+Subcommands:
 
-No flags or subcommands. Single optional positional argument: path to a TOML config file.
+| Command | Description |
+|---------|-------------|
+| `devlauncher` | Start services (reads dev.toml, or runs auto-discovery if absent) |
+| `devlauncher init` | Run auto-discovery and write dev.toml without starting services |
+| `devlauncher path/to/dev.toml` | Use an explicit config file path |
+| `devlauncher --version` / `-V` | Print version and exit |
 
 ---
 
@@ -131,5 +132,5 @@ Runs sequentially before services start.
 - Auto-discovery detects at most one frontend and one backend service per project
 - Monorepo layouts (`packages/`, `apps/` with 2+ subdirs) produce a warning; manual `dev.toml` recommended
 - UNCERTAIN confidence services (score 1–2) are skipped automatically
-- `devlauncher init` is **not implemented** — do not suggest it or reference it
+- `devlauncher init` — runs auto-discovery, writes `dev.toml` without starting services; useful when the user wants to review config before the first run
 - `tomli` must be installed manually on Python 3.9–3.10 if not declared in the consuming project's own dependencies

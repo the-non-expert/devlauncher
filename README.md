@@ -28,6 +28,15 @@ devlauncher scans your project, detects services (Vite, FastAPI, Django, etc.), 
 and asks once to confirm. On confirmation it writes a `dev.toml` and starts everything. It never
 asks again.
 
+**Init only** — generate a `dev.toml` to review before running:
+
+```
+devlauncher init
+```
+
+Runs the same auto-discovery, writes `dev.toml`, and exits without starting any services.
+Useful when you want to edit the config first (custom flags, extra services, port overrides).
+
 **Manual** — create a `dev.toml`:
 
 ```toml
@@ -112,6 +121,7 @@ env         = { KEY = "value" }                        # optional; supports port
 - Graceful shutdown (SIGTERM → 5s timeout → SIGKILL)
 - Cross-platform: macOS, Linux, Windows
 - `--version` / `-V` flag
+- `devlauncher init` — generate `dev.toml` from auto-discovery without starting services
 - MCP server for Claude Code agent awareness (zero config)
 - Dependencies: `mcp` (all versions), `tomli` (Python 3.9–3.10 only)
 

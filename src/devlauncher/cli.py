@@ -117,6 +117,95 @@ def _restart_loop(services: List[Service], original_services: List[Service]) -> 
             services = _resolve_services(original_services)
 
 
+def _print_discovery_report(services: List[Service]) -> None:
+    """Print the auto-discovery results table to stdout."""
+    _FW_WIDTH = 10
+    _DIR_WIDTH = 14
+    print(f"  {'SERVICE':<8}  {'FRAMEWORK':<{_FW_WIDTH}}  {'DIR':<{_DIR_WIDTH}}  COMMAND")
+    print(f"  {'─'*8}  {'─'*_FW_WIDTH}  {'─'*_DIR_WIDTH}  {'─'*38}")
+    for svc in services:
+        fw = "unknown"
+        cmd_lower = svc.cmd.lower()
+        if "uvicorn" in cmd_lower:
+            fw = "fastapi"
+        elif "manage.py" in cmd_lower:
+            fw = "django"
+        elif "flask" in cmd_lower:
+            fw = "flask"
+        elif "cargo" in cmd_lower:
+            fw = "rust"
+        elif "go run" in cmd_lower:
+            fw = "go"
+        elif any(x in cmd_lower for x in ("vite", "npm", "bun", "pnpm")):
+            fw = "node/vite"
+        cwd_display = svc.cwd if svc.cwd != "." else "(root)"
+        print(
+            f"  [{svc.name.upper()}]    {fw:<{_FW_WIDTH}}  "
+            f"{cwd_display:<{_DIR_WIDTH}}  {svc.cmd}"
+        )
+    print()
+
+
+def _run_init() -> None:
+    """Run auto-discovery and write dev.toml without starting services.
+
+    Intended for first-time setup when the user wants to review the generated
+    config before running devlauncher. Does not start any services.
+    """
+    print(f"{YELLOW}Running auto-discovery...{RESET}\n")
+    services, warnings = discover_services()
+
+    for w in warnings:
+        print(f"{YELLOW}⚠  {w}{RESET}")
+
+    if not services:
+        print(
+            "\nNo services detected. Create a dev.toml manually.\n"
+            "  Example:\n"
+            "    [services.api]\n"
+            '    cmd = "uvicorn main:app --reload --port {self.port}"\n'
+            "    port = 8000\n"
+            '    cwd = "api"\n',
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    _print_discovery_report(services)
+
+    config_path = Path("dev.toml")
+
+    if config_path.exists():
+        print(f"  {YELLOW}dev.toml already exists.{RESET}")
+        try:
+            answer = input("  Overwrite? [y/N] ").strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            print("\nAborted.")
+            sys.exit(0)
+        if answer not in ("y", "yes"):
+            print("Aborted.")
+            sys.exit(0)
+    else:
+        try:
+            answer = input("  Write dev.toml with these services? [Y/n] ").strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            print("\nAborted.")
+            sys.exit(0)
+        if answer in ("n", "no"):
+            print("Aborted.")
+            sys.exit(0)
+
+    toml_content = services_to_toml(services)
+    try:
+        config_path.write_text(toml_content, encoding="utf-8")
+        print(
+            f"\n  {BOLD}dev.toml{RESET} written. "
+            f"Edit it, then run {BOLD}devlauncher{RESET} to start services.\n"
+        )
+    except OSError as e:
+        print(f"Error: could not write dev.toml: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main() -> None:
     if len(sys.argv) > 1 and sys.argv[1] in ("--version", "-V"):
         from . import __version__
@@ -130,6 +219,10 @@ def main() -> None:
 
     from .mcp_server import ensure_registered
     ensure_registered()
+
+    if len(sys.argv) > 1 and sys.argv[1] == "init":
+        _run_init()
+        return
 
     explicit_config = len(sys.argv) > 1
     config_path = sys.argv[1] if explicit_config else "dev.toml"
@@ -170,27 +263,7 @@ def main() -> None:
             sys.exit(1)
 
         # ── Discovery report ───────────────────────────────────────────────────
-        _FW_WIDTH = 10
-        _DIR_WIDTH = 14
-        print(f"  {'SERVICE':<8}  {'FRAMEWORK':<{_FW_WIDTH}}  {'DIR':<{_DIR_WIDTH}}  COMMAND")
-        print(f"  {'─'*8}  {'─'*_FW_WIDTH}  {'─'*_DIR_WIDTH}  {'─'*38}")
-        for svc in services:
-            # Infer framework label from cmd for display
-            fw = "unknown"
-            cmd_lower = svc.cmd.lower()
-            if "uvicorn" in cmd_lower:    fw = "fastapi"
-            elif "manage.py" in cmd_lower: fw = "django"
-            elif "flask" in cmd_lower:     fw = "flask"
-            elif "cargo" in cmd_lower:     fw = "rust"
-            elif "go run" in cmd_lower:    fw = "go"
-            elif "vite" in cmd_lower or "npm" in cmd_lower or "bun" in cmd_lower or "pnpm" in cmd_lower:
-                fw = "node/vite"
-            cwd_display = svc.cwd if svc.cwd != "." else "(root)"
-            print(
-                f"  [{svc.name.upper()}]    {fw:<{_FW_WIDTH}}  "
-                f"{cwd_display:<{_DIR_WIDTH}}  {svc.cmd}"
-            )
-        print()
+        _print_discovery_report(services)
         print(f"  A {BOLD}dev.toml{RESET} will be saved so you won't be asked again.")
         print()
 

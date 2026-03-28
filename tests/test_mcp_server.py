@@ -222,3 +222,122 @@ def test_ensure_registered_handles_corrupt_settings(tmp_path):
         ensure_registered()  # must not raise
     data = json.loads(settings_path.read_text())
     assert "devlauncher" in data["mcpServers"]
+
+
+# ── Windsurf registration ─────────────────────────────────────────────────────
+
+def _no_claude_settings(tmp_path):
+    """Return a patch context that points Claude Code settings to a dummy path."""
+    return patch("devlauncher.mcp_server._CLAUDE_SETTINGS", tmp_path / ".claude.json")
+
+
+def test_windsurf_registered_when_installed(tmp_path, monkeypatch):
+    windsurf_dir = tmp_path / ".codeium" / "windsurf"
+    windsurf_dir.mkdir(parents=True)
+    with _no_claude_settings(tmp_path), \
+         patch("devlauncher.mcp_server._mcp_command", return_value="/usr/bin/devlauncher-mcp"), \
+         patch("pathlib.Path.home", return_value=tmp_path):
+        from devlauncher.mcp_server import ensure_registered
+        ensure_registered()
+    config = json.loads((windsurf_dir / "mcp_config.json").read_text())
+    assert "devlauncher" in config["mcpServers"]
+    assert config["mcpServers"]["devlauncher"]["command"] == "/usr/bin/devlauncher-mcp"
+
+
+def test_windsurf_skipped_when_not_installed(tmp_path, monkeypatch):
+    # ~/.codeium/windsurf/ does NOT exist
+    with _no_claude_settings(tmp_path), \
+         patch("devlauncher.mcp_server._mcp_command", return_value="/usr/bin/devlauncher-mcp"), \
+         patch("pathlib.Path.home", return_value=tmp_path):
+        from devlauncher.mcp_server import ensure_registered
+        ensure_registered()
+    assert not (tmp_path / ".codeium" / "windsurf" / "mcp_config.json").exists()
+
+
+def test_windsurf_registration_idempotent(tmp_path):
+    windsurf_dir = tmp_path / ".codeium" / "windsurf"
+    windsurf_dir.mkdir(parents=True)
+    existing = {"mcpServers": {"devlauncher": {"command": "/usr/bin/devlauncher-mcp"}}}
+    (windsurf_dir / "mcp_config.json").write_text(json.dumps(existing))
+    with _no_claude_settings(tmp_path), \
+         patch("devlauncher.mcp_server._mcp_command", return_value="/usr/bin/devlauncher-mcp"), \
+         patch("pathlib.Path.home", return_value=tmp_path):
+        from devlauncher.mcp_server import ensure_registered
+        ensure_registered()
+        ensure_registered()
+    config = json.loads((windsurf_dir / "mcp_config.json").read_text())
+    assert list(config["mcpServers"].keys()) == ["devlauncher"]  # no duplicates
+
+
+def test_windsurf_preserves_existing_servers(tmp_path):
+    windsurf_dir = tmp_path / ".codeium" / "windsurf"
+    windsurf_dir.mkdir(parents=True)
+    existing = {"mcpServers": {"other-tool": {"command": "other-cmd"}}}
+    (windsurf_dir / "mcp_config.json").write_text(json.dumps(existing))
+    with _no_claude_settings(tmp_path), \
+         patch("devlauncher.mcp_server._mcp_command", return_value="/usr/bin/devlauncher-mcp"), \
+         patch("pathlib.Path.home", return_value=tmp_path):
+        from devlauncher.mcp_server import ensure_registered
+        ensure_registered()
+    config = json.loads((windsurf_dir / "mcp_config.json").read_text())
+    assert "other-tool" in config["mcpServers"]
+    assert "devlauncher" in config["mcpServers"]
+
+
+# ── Cursor registration ───────────────────────────────────────────────────────
+
+def test_cursor_registered_when_project_opened_in_cursor(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    cursor_dir = tmp_path / ".cursor"
+    cursor_dir.mkdir()
+    with _no_claude_settings(tmp_path), \
+         patch("devlauncher.mcp_server._mcp_command", return_value="/usr/bin/devlauncher-mcp"), \
+         patch("pathlib.Path.home", return_value=tmp_path):
+        from devlauncher.mcp_server import ensure_registered
+        ensure_registered()
+    config = json.loads((cursor_dir / "mcp.json").read_text())
+    assert "devlauncher" in config["mcpServers"]
+    assert config["mcpServers"]["devlauncher"]["command"] == "/usr/bin/devlauncher-mcp"
+
+
+def test_cursor_skipped_when_project_not_opened_in_cursor(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    # .cursor/ does NOT exist
+    with _no_claude_settings(tmp_path), \
+         patch("devlauncher.mcp_server._mcp_command", return_value="/usr/bin/devlauncher-mcp"), \
+         patch("pathlib.Path.home", return_value=tmp_path):
+        from devlauncher.mcp_server import ensure_registered
+        ensure_registered()
+    assert not (tmp_path / ".cursor" / "mcp.json").exists()
+
+
+def test_cursor_registration_idempotent(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    cursor_dir = tmp_path / ".cursor"
+    cursor_dir.mkdir()
+    existing = {"mcpServers": {"devlauncher": {"command": "/usr/bin/devlauncher-mcp"}}}
+    (cursor_dir / "mcp.json").write_text(json.dumps(existing))
+    with _no_claude_settings(tmp_path), \
+         patch("devlauncher.mcp_server._mcp_command", return_value="/usr/bin/devlauncher-mcp"), \
+         patch("pathlib.Path.home", return_value=tmp_path):
+        from devlauncher.mcp_server import ensure_registered
+        ensure_registered()
+        ensure_registered()
+    config = json.loads((cursor_dir / "mcp.json").read_text())
+    assert list(config["mcpServers"].keys()) == ["devlauncher"]  # no duplicates
+
+
+def test_cursor_preserves_existing_servers(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    cursor_dir = tmp_path / ".cursor"
+    cursor_dir.mkdir()
+    existing = {"mcpServers": {"other-tool": {"command": "other-cmd"}}}
+    (cursor_dir / "mcp.json").write_text(json.dumps(existing))
+    with _no_claude_settings(tmp_path), \
+         patch("devlauncher.mcp_server._mcp_command", return_value="/usr/bin/devlauncher-mcp"), \
+         patch("pathlib.Path.home", return_value=tmp_path):
+        from devlauncher.mcp_server import ensure_registered
+        ensure_registered()
+    config = json.loads((cursor_dir / "mcp.json").read_text())
+    assert "other-tool" in config["mcpServers"]
+    assert "devlauncher" in config["mcpServers"]

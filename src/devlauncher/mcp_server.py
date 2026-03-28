@@ -1,11 +1,13 @@
 """MCP server for devlauncher agent awareness.
 
-Exposes two tools to Claude Code:
+Exposes two tools to AI coding assistants:
   devlauncher_status()             — running services, ports, PIDs
   devlauncher_logs(service, lines) — last N lines from a service log file
 
-The server is registered in ~/.claude/settings.json on first devlauncher run.
-Claude Code spawns it as a subprocess (stdio transport) when a tool is called.
+Registered automatically on first devlauncher run in:
+  - Claude Code:  ~/.claude/settings.json       (global)
+  - Windsurf:     ~/.codeium/windsurf/mcp_config.json  (global, if installed)
+  - Cursor:       .cursor/mcp.json              (per-project, if .cursor/ exists)
 """
 
 import json
@@ -100,17 +102,16 @@ def _tail(path: Path, n: int) -> List[str]:
         return []
 
 
-def ensure_registered() -> None:
-    """Register devlauncher MCP server in ~/.claude/settings.json if not already present.
+def _register_in_mcp_json(config_path: Path, label: str) -> None:
+    """Upsert devlauncher into an mcpServers JSON file.
 
-    Idempotent — safe to call on every devlauncher start.
-    Non-fatal: prints a warning if registration fails.
+    Shared logic for Cursor (.cursor/mcp.json) and Windsurf
+    (~/.codeium/windsurf/mcp_config.json) which both use the same schema.
+    Idempotent and non-fatal.
     """
-    settings_path = _CLAUDE_SETTINGS
-
-    if settings_path.exists():
+    if config_path.exists():
         try:
-            settings = json.loads(settings_path.read_text(encoding="utf-8"))
+            settings = json.loads(config_path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             settings = {}
     else:
@@ -124,11 +125,53 @@ def ensure_registered() -> None:
     settings["mcpServers"] = mcp_servers
 
     try:
-        settings_path.parent.mkdir(parents=True, exist_ok=True)
-        settings_path.write_text(json.dumps(settings, indent=2), encoding="utf-8")
-        print(f"  {YELLOW}✓  Registered devlauncher MCP server with Claude Code.{RESET}", flush=True)
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(json.dumps(settings, indent=2), encoding="utf-8")
+        print(f"  {YELLOW}✓  Registered devlauncher MCP server with {label}.{RESET}", flush=True)
     except OSError as e:
-        print(f"  {YELLOW}⚠  Could not register MCP server: {e}{RESET}", flush=True)
+        print(f"  {YELLOW}⚠  Could not register MCP server with {label}: {e}{RESET}", flush=True)
+
+
+def ensure_registered() -> None:
+    """Register devlauncher MCP server with all detected AI coding assistants.
+
+    Registers with:
+      - Claude Code  (~/.claude/settings.json)        always
+      - Windsurf     (~/.codeium/windsurf/mcp_config.json)  if Windsurf is installed
+      - Cursor       .cursor/mcp.json                 if project already has .cursor/
+
+    Idempotent — safe to call on every devlauncher start.
+    """
+    # ── Claude Code ────────────────────────────────────────────────────────────
+    settings_path = _CLAUDE_SETTINGS
+    if settings_path.exists():
+        try:
+            settings = json.loads(settings_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            settings = {}
+    else:
+        settings = {}
+
+    mcp_servers = settings.get("mcpServers", {})
+    if _MCP_SERVER_KEY not in mcp_servers:
+        mcp_servers[_MCP_SERVER_KEY] = {"command": _mcp_command()}
+        settings["mcpServers"] = mcp_servers
+        try:
+            settings_path.parent.mkdir(parents=True, exist_ok=True)
+            settings_path.write_text(json.dumps(settings, indent=2), encoding="utf-8")
+            print(f"  {YELLOW}✓  Registered devlauncher MCP server with Claude Code.{RESET}", flush=True)
+        except OSError as e:
+            print(f"  {YELLOW}⚠  Could not register MCP server with Claude Code: {e}{RESET}", flush=True)
+
+    # ── Windsurf (global, only if installed) ───────────────────────────────────
+    windsurf_dir = Path.home() / ".codeium" / "windsurf"
+    if windsurf_dir.exists():
+        _register_in_mcp_json(windsurf_dir / "mcp_config.json", "Windsurf")
+
+    # ── Cursor (per-project, only if this project has been opened in Cursor) ───
+    cursor_dir = Path.cwd() / ".cursor"
+    if cursor_dir.exists():
+        _register_in_mcp_json(cursor_dir / "mcp.json", "Cursor")
 
 
 def run() -> None:

@@ -237,6 +237,16 @@ def main() -> None:
             print(f"Config error: {e}", file=sys.stderr)
             sys.exit(1)
 
+        # Migrate outdated dev.toml schemas automatically
+        from .migration import CURRENT_SCHEMA_VERSION, check_and_migrate, read_schema_version
+        if read_schema_version(Path(config_path)) < CURRENT_SCHEMA_VERSION:
+            services, changelog = check_and_migrate(Path(config_path), services)
+            if changelog:
+                print(f"{YELLOW}↑  dev.toml updated to schema v{CURRENT_SCHEMA_VERSION}:{RESET}")
+                for line in changelog:
+                    print(f"{YELLOW}{line}{RESET}")
+                print()
+
     elif explicit_config:
         # User passed a path that doesn't exist
         print(f"Error: config file not found: {config_path}", file=sys.stderr)

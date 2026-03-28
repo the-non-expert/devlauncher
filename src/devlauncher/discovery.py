@@ -37,6 +37,39 @@ def _score_to_confidence(score: int) -> str:
     return SKIP
 
 
+PLAUSIBLE_SCORE = 3  # minimum score to include a service in discovery results
+
+
+def _service_name(
+    dir_path: Path,
+    role: str,
+    used_names: set,
+    root_path: Path,
+) -> str:
+    """Derive a human-friendly service name from directory path and role.
+
+    Applies friendly aliases for common directory names, strips noise
+    suffixes, and appends a numeric suffix on collision.
+    """
+    name = dir_path.name.lower() if dir_path != root_path else ""
+
+    if role == "frontend":
+        if name in ("frontend", "client", "ui", "app", "web", ""):
+            name = "web"
+    else:  # backend
+        name = name.replace("-service", "").replace("-api", "").replace("-server", "")
+        if name in ("backend", "server", "service", ""):
+            name = "api"
+
+    # Deduplicate: api → api2 → api3 …
+    if name not in used_names:
+        return name
+    i = 2
+    while f"{name}{i}" in used_names:
+        i += 1
+    return f"{name}{i}"
+
+
 # ── Directories to skip during scan ───────────────────────────────────────────
 _SKIP_DIRS = {
     ".git", "node_modules", "__pycache__", ".venv", "venv", "env",
@@ -392,99 +425,83 @@ def discover_services(root: Optional[str] = None) -> Tuple[List[Service], List[s
         if score.frontend_score > 0 or score.backend_score > 0:
             candidates.append(score)
 
-    # Pick best frontend and backend
-    frontend_candidates = sorted(
-        [c for c in candidates if c.frontend_score > 0],
-        key=lambda c: c.frontend_score, reverse=True,
+    # ── Root-fallback rule ─────────────────────────────────────────────────────
+    # If any subdir confidently covers a role, don't also add root for that role.
+    subdir_has_frontend = any(
+        c.frontend_score >= PLAUSIBLE_SCORE and c.path != root_path
+        for c in candidates
     )
-    backend_candidates = sorted(
-        [c for c in candidates if c.backend_score > 0],
-        key=lambda c: c.backend_score, reverse=True,
+    subdir_has_backend = any(
+        c.backend_score >= PLAUSIBLE_SCORE and c.path != root_path
+        for c in candidates
     )
 
-    # Warn if multiple strong candidates per role
-    if len(frontend_candidates) >= 2:
-        top, second = frontend_candidates[0], frontend_candidates[1]
-        if second.frontend_score >= HIGH:
-            warnings.append(
-                f"Multiple frontend candidates found: '{top.path.name}' (score {top.frontend_score}) "
-                f"and '{second.path.name}' (score {second.frontend_score}). "
-                f"Using '{top.path.name}'. Run 'devlauncher init' if wrong."
-            )
-
-    if len(backend_candidates) >= 2:
-        top, second = backend_candidates[0], backend_candidates[1]
-        if second.backend_score >= HIGH:
-            warnings.append(
-                f"Multiple backend candidates found: '{top.path.name}' (score {top.backend_score}) "
-                f"and '{second.path.name}' (score {second.backend_score}). "
-                f"Using '{top.path.name}'. Run 'devlauncher init' if wrong."
-            )
+    # Sort by highest role score descending so confident services get name priority
+    sorted_candidates = sorted(
+        candidates,
+        key=lambda c: max(c.frontend_score, c.backend_score),
+        reverse=True,
+    )
 
     services: List[Service] = []
+    used_names: set = set()
 
-    # Build frontend service
-    if frontend_candidates:
-        fs = frontend_candidates[0]
-        confidence = _score_to_confidence(fs.frontend_score)
-        if confidence != SKIP:
-            cmd, port = _infer_frontend(fs)
-            cwd = str(fs.path.relative_to(root_path)) if fs.path != root_path else "."
-            svc_warnings = list(fs.warnings)
-            if confidence == UNCERTAIN:
-                svc_warnings.append(
-                    f"Low confidence for frontend in '{fs.path.name}' (score {fs.frontend_score}). "
-                    "Run 'devlauncher init' to verify."
-                )
-            services.append(Service(
-                name="web",
-                cmd=cmd,
-                port=port,
-                cwd=cwd,
-                env={},
-                install_cmd=_infer_install_cmd(fs),
-            ))
-            warnings.extend(svc_warnings)
-    else:
-        warnings.append("No frontend service detected.")
-
-    # Build backend service
-    if backend_candidates:
-        bs = backend_candidates[0]
-        confidence = _score_to_confidence(bs.backend_score)
-        if confidence != SKIP:
-            cmd, port, extra_warnings = _infer_backend(bs)
-            cwd = str(bs.path.relative_to(root_path)) if bs.path != root_path else "."
-            svc_warnings = list(bs.warnings) + extra_warnings
-            if confidence == UNCERTAIN:
-                svc_warnings.append(
-                    f"Low confidence for backend in '{bs.path.name}' (score {bs.backend_score}). "
-                    "Run 'devlauncher init' to verify."
-                )
-            services.append(Service(
-                name="api",
-                cmd=cmd,
-                port=port,
-                cwd=cwd,
-                env={},
-                install_cmd=_infer_install_cmd(bs),
-            ))
-            warnings.extend(svc_warnings)
-    else:
-        warnings.append("No backend service detected.")
-
-    # 3+ services total → recommend dev.toml
-    total = len(frontend_candidates) + len(backend_candidates)
-    if total >= 4:
-        warnings.append(
-            f"{total} potential services found. "
-            "For complex projects, 'devlauncher init' is strongly recommended."
+    for candidate in sorted_candidates:
+        is_root = candidate.path == root_path
+        cwd = (
+            str(candidate.path.relative_to(root_path))
+            if candidate.path != root_path
+            else "."
         )
+
+        # ── Frontend service ───────────────────────────────────────────────────
+        if candidate.frontend_score >= PLAUSIBLE_SCORE:
+            if not (is_root and subdir_has_frontend):
+                cmd, port = _infer_frontend(candidate)
+                name = _service_name(candidate.path, "frontend", used_names, root_path)
+                used_names.add(name)
+                services.append(Service(
+                    name=name,
+                    cmd=cmd,
+                    port=port,
+                    cwd=cwd,
+                    env={},
+                    install_cmd=_infer_install_cmd(candidate),
+                ))
+        elif 0 < candidate.frontend_score < PLAUSIBLE_SCORE:
+            warnings.append(
+                f"Low-confidence frontend in '{candidate.path.name}' (score "
+                f"{candidate.frontend_score}) — skipped. Add to dev.toml manually if needed."
+            )
+
+        # ── Backend service ────────────────────────────────────────────────────
+        if candidate.backend_score >= PLAUSIBLE_SCORE:
+            if not (is_root and subdir_has_backend):
+                cmd, port, extra_warnings = _infer_backend(candidate)
+                warnings.extend(extra_warnings)
+                name = _service_name(candidate.path, "backend", used_names, root_path)
+                used_names.add(name)
+                services.append(Service(
+                    name=name,
+                    cmd=cmd,
+                    port=port,
+                    cwd=cwd,
+                    env={},
+                    install_cmd=_infer_install_cmd(candidate),
+                ))
+        elif 0 < candidate.backend_score < PLAUSIBLE_SCORE:
+            warnings.append(
+                f"Low-confidence backend in '{candidate.path.name}' (score "
+                f"{candidate.backend_score}) — skipped. Add to dev.toml manually if needed."
+            )
 
     return services, warnings
 
 
 # ── TOML serialisation ─────────────────────────────────────────────────────────
+CURRENT_SCHEMA_VERSION = 1
+
+
 def services_to_toml(services: List[Service]) -> str:
     """Serialise discovered services to a dev.toml string.
 
